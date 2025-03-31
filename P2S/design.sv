@@ -14,7 +14,7 @@ module P2S (
 
     logic int_out_ready;
 
-    DFF outReady_DFF (.clk(FRAME), .reset(CLR | count == 40), .D(LOAD), .Q(int_out_ready));
+    //DFF outReady_DFF (.clk(FRAME), .reset(CLR | count == 40), .D(LOAD), .Q(int_out_ready));
 
     always_ff @(posedge SCLK or posedge CLR) begin
         if (CLR) begin
