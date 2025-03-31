@@ -9,6 +9,7 @@ module tb_ALU;
     logic [15:0] data;
     logic [15:0] coeff_data;
     logic [7:0] rj_data;
+    logic [39:0] accum_reg;
 
     // Outputs
     logic [7:0] data_addr;
@@ -30,14 +31,15 @@ module tb_ALU;
         .clk(clk),
         .enable(enable),
         .clear(clear),
-        .current_data_addr(3),
+        .current_data_addr(35),
         .data(data),
         .coeff_data(coeff_data),
         .rj_data(rj_data),
         .data_addr(data_addr),
         .coeff_addr(coeff_addr),
         .rj_addr(rj_addr),
-        .output_en(output_en)
+        .output_en(output_en),
+        .accum_reg(accum_reg)
     );
 
     // Clock generation

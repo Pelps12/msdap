@@ -22,7 +22,7 @@ module rj_memory (
         if (rj_wr_en_l) begin
             rj_mem_l[rj_addr_l] <= rj_data_in_l;
             
-                //$display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
+            //$display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
             
             
         end
@@ -61,7 +61,7 @@ module coefficients_memory (
         if (coeff_wr_en_l) begin
             coeff_mem_l[coeff_addr_l] <= coeff_data_in_l;
             
-                //$display("Writing %x to Address: %d", coeff_data_in_l, coeff_addr_l);
+            $display("Writing %x to Address: %d", coeff_data_in_l, coeff_addr_l);
             
             
         end
@@ -83,6 +83,7 @@ module data_memory_fifo (
     input logic clk,
     input logic start,
     input logic rst_n,              // Active-low reset
+    input logic clear,
     input logic data_wr_en_l,       // Write enable for Left channel
     input logic data_wr_en_r,       // Write enable for Right channel
     input logic [7:0] read_addr_l,// Read offset for Left channel
@@ -99,16 +100,26 @@ module data_memory_fifo (
     logic [15:0] data_mem_r [0:255];
 
     // Write logic for Left channel
-    always_ff @(posedge clk or negedge rst_n ) begin
-        if (data_wr_en_l) begin
+    always_ff @(posedge clk or negedge rst_n or posedge clear) begin
+        if (clear || !rst_n) begin
+            for (int i = 0; i < 256; i++) begin
+                data_mem_l[i] <= 0;
+            end
+        end
+        else if(data_wr_en_l) begin
             data_mem_l[write_addr_l] <= data_in_l;
             //$display("Writing %x to Memory. ADDY: %d", data_in_l, write_addr_l);
         end
     end
 
     // Write logic for Right channel
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (data_wr_en_r) begin
+    always_ff @(posedge clk or negedge rst_n or posedge clear) begin
+        if (clear || !rst_n) begin
+            for (int i = 0; i < 256; i++) begin
+                data_mem_r[i] <= 0;
+            end
+        end
+        else if(data_wr_en_r) begin
             data_mem_r[write_addr_r] <= data_in_r;
         end
         

@@ -1,39 +1,48 @@
 module tb_serial_to_parallel_converter();
     // Testbench signals
     logic DCLK;
-    logic Reset_n;
-    logic InputL, InputR;
+    logic clear, valid;
+    logic InputL, InputR, InReady;
     logic [15:0] ParallelL, ParallelR;
 
     // Instantiate the Device Under Test (DUT)
     S2P dut (
         .DCLK(DCLK),
-        .start(Reset_n),
+        .clear(clear),
         .InputL(InputL),
         .InputR(InputR),
         .ParallelL(ParallelL),
-        .ParallelR(ParallelR)
+        .ParallelR(ParallelR),
+        .valid(valid)
     );
 
-    // Clock generation
+// Data Clock (gated by InReady)
     initial begin
         DCLK = 0;
-        forever #5 DCLK = ~DCLK;  // 100 MHz clock (for simulation)
+        forever begin
+            if (InReady) #651.04 DCLK = ~DCLK;
+            else begin
+                DCLK = 0;
+                @(posedge InReady);
+            end
+        end
     end
 
     // Test sequence
     initial begin
         // Initialize inputs
-        Reset_n = 0;
+        clear = 0;
         InputL = 0;
         InputR = 0;
+        InReady = 0;
 
         // Reset sequence
-        #10 Reset_n = 1;
-        #10 Reset_n = 0;
+        #10 clear = 1;
+        #10 clear = 0;
 
         // Test case 1: Shift in a known pattern for Left channel
         $display("Test Case 1: Shifting in test pattern");
+        InReady = 1;
         // Pattern: 1010 1100 0011 0101 (binary)
         // Hexadecimal: 0xAC6B
         // Will shift in from MSB to LSB
@@ -79,8 +88,8 @@ module tb_serial_to_parallel_converter();
 
         // Test case 3: Reset functionality
         $display("Test Case 3: Reset functionality");
-        #10 Reset_n = 0;
-        #10 Reset_n = 1;
+        #10 clear = 0;
+        #10 clear = 1;
 
         // Final checks
         #20 

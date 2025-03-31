@@ -66,58 +66,58 @@ module MSDAP (
     logic [8:0] coeff_count;
     logic [39:0] accum_reg;
 
+    logic mem_clear;
+
     logic frame_pulse, conv_done;
 
     Counter data_rc(
-        .clk(SCLK),
+        .clk(s2p_ready),
         .restart(data_count_restart),
         .enable(data_count_enable),
         .done(data_clear_complete),
         .count(data_addr)
     );
 
-
-
-    Offset_Counter #(.LIMIT('d15)) rj_counter_offset( 
+    rising_edge_pulse fall_detector(
         .clk(SCLK),
+        .signal_in(Frame),
+        .pulse_out(frame_pulse)
+    );
+
+
+
+    Counter #(.LIMIT('d15)) rj_counter_offset( 
+        .clk(s2p_ready),
         .restart(rj_count_restart),
         .enable(rj_count_enable),
         .done(rj_count_done),
         .count(rj_count)
     );
 
-    Offset_Counter #(.LIMIT('d511)) coeff_counter_offset( 
-        .clk(SCLK),
+    Counter #(.LIMIT('d511)) coeff_counter_offset( 
+        .clk(s2p_ready),
         .restart(coeff_count_restart),
         .enable(coeff_count_enable),
         .done(coeff_count_done),
         .count(coeff_count)
     );
 
-    FrameToSCLK synchronizer(
-        .DCLK(DCLK),
-        .SCLK(SCLK),
-        .start(Start),
-        .Frame(Frame),
-        .FramePulse(frame_pulse)
-    );
 
 
     S2P s2p (
         .DCLK(DCLK),
-        .SCLK(SCLK),
         .clear(s2p_clear),
         .InputL(InputL),
         .InputR(InputR),
         .ParallelL(ParallelL),
         .ParallelR(ParallelR),
-        .ready(s2p_ready)
+        .valid(s2p_ready)
     );
 
     rj_memory rj_mem (
         .clk(SCLK),
-        .rj_wr_en_l(rj_wr_en),
-        .rj_wr_en_r(rj_wr_en),
+        .rj_wr_en_l(s2p_ready && rj_wr_en),
+        .rj_wr_en_r(s2p_ready && rj_wr_en),
         .rj_addr_l(rj_wr_en ? rj_count: rj_addr_l),
         .rj_addr_r(rj_wr_en ? rj_count: rj_addr_r),
         .rj_data_in_l(ParallelL),
@@ -127,9 +127,9 @@ module MSDAP (
     );
 
     coefficients_memory coeff_mem (
-        .clk(SCLK),
-        .coeff_wr_en_l(coeff_wr_en),
-        .coeff_wr_en_r(coeff_wr_en),
+        .clk(DCLK),
+        .coeff_wr_en_l(s2p_ready && coeff_wr_en),
+        .coeff_wr_en_r(s2p_ready && coeff_wr_en),
         .coeff_addr_l(coeff_wr_en ? coeff_count: coeff_addr_l),
         .coeff_addr_r(coeff_wr_en ? coeff_count: coeff_addr_r),
         .coeff_data_in_l(ParallelL),
@@ -139,11 +139,12 @@ module MSDAP (
     );
 
     data_memory_fifo data_fifo (
-        .clk(SCLK),
+        .clk(DCLK),
         .rst_n(Reset_n),
         .start(Start),
-        .data_wr_en_l(data_wr_en),
-        .data_wr_en_r(data_wr_en),
+        .clear(mem_clear),
+        .data_wr_en_l(s2p_ready && data_wr_en),
+        .data_wr_en_r(s2p_ready && data_wr_en),
         .read_addr_l(read_offset_l),
         .read_addr_r(read_offset_r),
         .write_addr_l(data_addr),
@@ -157,7 +158,7 @@ module MSDAP (
     ALU alu(
         .clk(SCLK),
         .enable(alu_en),
-        .clear(alu_clear),
+        .clear(frame_pulse),
         .current_data_addr(data_addr),
         .data(data_out_l),
         .coeff_data(coeff_data_out_l),
@@ -166,12 +167,14 @@ module MSDAP (
         .coeff_addr(coeff_addr_l),
         .rj_addr(rj_addr_l),
         .output_en(conv_done),
-        .accum_reg(accum_reg)
+        .result_reg(accum_reg)
     );
+
 
     P2S p2s (
         .SCLK(SCLK),
-        .LOAD(p2s_load),
+        .LOAD(conv_done),
+        .FRAME(Frame),
         .CLR(p2s_clear),
         .PDATAIN(accum_reg),
         .DATAOUT(OutputL),
@@ -193,6 +196,7 @@ module MSDAP (
         .frame(Frame),
         .reset_n(Reset_n),
         .all_zeros(all_zeros),
+        .mem_clear(mem_clear),
         .data_count_restart(data_count_restart),
         .data_count_enable(data_count_enable),
         .data_clear(data_clear),

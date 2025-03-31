@@ -9,20 +9,29 @@ module ALU (
     output logic [7:0] data_addr, // Data Memory address (LSBs of coeff)
     output logic [8:0] coeff_addr, // Coefficient Memory address
     output logic [3:0] rj_addr,    // Rj Memory address
-    output logic [39:0] accum_reg,        // 40-bit accumulator/shift register
+    output logic [39:0] result_reg,        // 40-bit accumulator/shift register
     output logic output_en
 );
 
 //--------------------------------------------------------------
 // Internal Signals
 //--------------------------------------------------------------
-
+logic [39:0] accum_reg;
 logic [23:0] alu_result;       // Adder/subtractor result
 logic [7:0] u_limit;           // Number of coefficients per Rj
-logic [7:0] current_u_index;   // Coefficient counter for current Rj
+logic [8:0] current_u_index;   // Coefficient counter for current Rj
 logic accum_en, shift_en;      // Control signals from FSM
 logic u_complete, rj_done, last_u;     // Status flags
 logic first_rj;                // Flag to handle first Rj initialization
+
+assign accum_en = enable;
+
+assign u_limit = rj_data;
+
+assign shift_en = current_u_index == u_limit;
+
+assign data_addr = current_data_addr - coeff_data[7:0];
+
 
 //--------------------------------------------------------------
 // Control FSM (Manages accumulation and shift states)
@@ -54,57 +63,58 @@ Adder adder (
 //--------------------------------------------------------------
 always_ff @(posedge clk or posedge clear) begin
     if (clear) begin
-        accum_reg <= 40'h0;
+        accum_reg = 40'h0;
     end else begin
-        if (accum_en) begin
-            accum_reg[39:16] <= alu_result;
-        end else if (shift_en) begin
-            accum_reg <= {accum_reg[39], accum_reg[39:1]};
+        if (accum_en && ~output_en) begin
+            accum_reg[39:16] = alu_result;
+            if (shift_en) begin
+                accum_reg = {accum_reg[39], accum_reg[39:1]};
+            end
+        end
+
+        if (output_en) begin
+            accum_reg = 0;
         end
     end
 end
 
-//--------------------------------------------------------------
-// Rj and Coefficient Tracking
-//--------------------------------------------------------------
-always_ff @(posedge clk or posedge clear) begin
+
+always_ff @( posedge clk, posedge clear ) begin
     if (clear) begin
-        current_u_index <= 8'h1;
         coeff_addr <= 8'h0;
-        u_limit         <= 8'h0;
-        rj_addr         <= 4'h0;
-        first_rj        <= 1'b1; // Initialize first Rj flag
-    end else begin
-        if (shift_en) begin
-            // Load new Rj after shift
-                        rj_addr         <= rj_addr + 1;
-            u_limit         <= rj_data;
-            current_u_index <= 8'h1;
-
-
-            first_rj        <= 1'b0;
-        end else if (first_rj && accum_en) begin
-            // Load first Rj on first accumulation cycle
-            u_limit         <= rj_data;
-            first_rj        <= 1'b0;
-        end else if (accum_en) begin
-            // Track coefficients for current Rj
-            current_u_index <= current_u_index + 1;
-            
+    end
+    else begin
+        if (~output_en && enable) begin
             coeff_addr <= coeff_addr + 1;
-            
+
+            u_complete = coeff_addr == 9'd511;
         end
     end
 end
 
-//--------------------------------------------------------------
-// Address Generation and Status Flags
-//--------------------------------------------------------------
-assign data_addr  = (current_data_addr - 1)- coeff_data[7:0];
-//assign coeff_addr = current_u_index; // Increments during ACCUM
-assign u_complete = (current_u_index == rj_data);
-assign rj_done    = (rj_addr == 4'd15); // Terminate after 16 Rj entries
-assign last_u = u_complete && coeff_addr == 'd511;
+always_ff @(posedge clk, posedge clear ) begin
+    if (clear) begin
+        current_u_index <= 1;
+        rj_addr <= 0;
+    end
+    else begin
+        if (~output_en && enable) begin
+            if (u_limit == current_u_index) begin
+                current_u_index <= 1;
+                rj_addr <= rj_addr + 1;
+            end
+            else begin
+                current_u_index <= current_u_index + 1;
+            end
+        end
+    end
+end
+
+always_ff @( posedge clk ) begin
+    if(output_en) begin
+        result_reg = accum_reg;
+    end
+end
 
 endmodule
 
@@ -126,10 +136,7 @@ module ALU_Control (
 //One clock cycle could be saved
 typedef enum {
     INIT = 0,   // Idle state
-    ACCUM = 1,  // Accumulate coefficients
-    SHIFT = 2,   // Shift after Rj completion
-    FINAL_SHIFT = 3,
-    DONE = 4
+    WORKING = 1
 } state_e;
 
 state_e state, next_state;
@@ -144,34 +151,25 @@ end
 
 always_comb begin
     case (state)
-        INIT:  next_state = (enable) ? ACCUM : INIT;  // Start on enable
-        ACCUM: begin
-            if (u_complete) begin
-                if(last_u) begin
-                    next_state = FINAL_SHIFT;
-                end
-                else begin
-                    next_state = SHIFT;
-                end
-            end
-            else begin
-                next_state = ACCUM;
-            end
-        end
-        SHIFT: next_state = (rj_done) ? INIT : ACCUM; // Loop or terminate
-        FINAL_SHIFT: next_state = DONE;
-        DONE: next_state = DONE;
+        INIT:  next_state = (enable) ? WORKING : INIT;  // Start on enable
+        WORKING: next_state = WORKING;
         default: next_state = INIT;
     endcase
 end
 
+always_comb begin
+    output_en = 0;
+    case (state)
+        WORKING: begin
+            if (u_complete) begin
+                output_en = 1;
+            end
+        end
+        default: begin
+        end
+    endcase
+end
 
-//--------------------------------------------------------------
-// Output Logic
-//--------------------------------------------------------------
-assign accum_en = (state == ACCUM); // Accumulate in ACCUM state
-assign shift_en = (state == SHIFT) || (state == FINAL_SHIFT); // Shift in SHIFT state
-assign output_en = (state == DONE);
 endmodule
 
 module Adder (

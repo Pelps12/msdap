@@ -1,5 +1,6 @@
 module P2S (
     input  logic        SCLK,      // System clock (26.88 MHz)
+    input logic         FRAME,
     input  logic        LOAD,      // Load 40-bit parallel data (active high)
     input  logic        CLR,       // Clear signal (active high)
     input  logic [39:0] PDATAIN,   // 40-bit parallel input (MSB-first: PDATAIN[0] = sign bit)
@@ -10,6 +11,10 @@ module P2S (
     // Internal shift register and counter
     logic [39:0] shift_reg;  // MSB at shift_reg[0], LSB at shift_reg[39]
     logic [5:0]  count;      // Counts 0-39 (6 bits)
+
+    logic int_out_ready;
+
+    DFF outReady_DFF (.clk(FRAME), .reset(CLR | count == 40), .D(LOAD), .Q(int_out_ready));
 
     always_ff @(posedge SCLK or posedge CLR) begin
         if (CLR) begin
@@ -32,3 +37,5 @@ module P2S (
     assign OutReady = (count < 6'd40); // High during 40-bit transmission
 
 endmodule
+
+

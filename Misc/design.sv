@@ -8,16 +8,22 @@ module Counter#(
     output logic done,
     output logic [$clog2(LIMIT)-1 : 0] count
 );
+logic first_cycle; // Flag to track the first cycle
 
 assign done = count == LIMIT;
 
 always_ff @( posedge clk, posedge restart ) begin : blockName
     if (restart) begin
         count <= START;
+        first_cycle <= 1'b1;
     end
     else begin
         if(enable) begin
-            count <= count + 1;
+            if (first_cycle) begin
+                first_cycle <= 1'b0; // After first cycle, start counting
+            end else begin
+                count <= count + 1;
+            end
         end
         
     end
@@ -128,6 +134,35 @@ module FrameToSCLK (
 
 endmodule
 
+module falling_edge_pulse (
+    input  logic clk,
+    input  logic signal_in,  // Input signal to detect falling edge
+    output logic pulse_out   // Single-cycle pulse output
+);
+    logic signal_d; // Delayed version of signal_in
+
+    always_ff @(posedge clk) begin
+        signal_d <= signal_in; // Register previous value
+    end
+
+    assign pulse_out = signal_d & ~signal_in; // Detect falling edge
+endmodule
+
+module rising_edge_pulse (
+    input  logic clk,
+    input  logic signal_in,  // Input signal to detect rising edge
+    output logic pulse_out   // Single-cycle pulse output
+);
+    logic signal_d; // Delayed version of signal_in
+
+    always_ff @(posedge clk) begin
+        signal_d <= signal_in; // Register previous value
+    end
+
+    assign pulse_out = ~signal_d & signal_in; // Detect rising edge
+endmodule
+
+
 module AllZerosDetector (
     input  logic clk,          // System clock
     input  logic clear,        // Clear/reset (active high)
@@ -157,3 +192,18 @@ module AllZerosDetector (
     end
 
 endmodule
+
+//D-flip flop with asynchronous reset
+module DFF
+(
+  input clk,
+  input reset,
+  input D,
+  output reg Q
+);
+always@(posedge clk, posedge reset) begin
+  if(reset)
+    Q <= 1'b0;
+  else Q <= D;
+end
+endmodule //DFF

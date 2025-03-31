@@ -21,20 +21,23 @@ module tb_MSDAP;
     logic [15:0] coeffL[0:511], coeffR[0:511];
     logic [15:0] dataL[0:2299], dataR[0:2299];
 
+    parameter sclk_period = 40;
+    parameter dclk_period = 1302; //data clock period 1302ns = 768kHz
+
     // Instantiate MSDAP
     MSDAP uut (.*);
 
     // Clock generation
     initial begin
         SCLK = 0;
-        forever #18.601 SCLK = ~SCLK;  // 26.88 MHz
+        forever #(sclk_period/2) SCLK = ~SCLK;  // 26.88 MHz
     end
 
     // Data Clock (gated by InReady)
     initial begin
         DCLK = 0;
         forever begin
-            if (InReady) #651.04 DCLK = ~DCLK;
+            if (InReady) #(dclk_period/2) DCLK = ~DCLK;
             else begin
                 DCLK = 0;
                 @(posedge InReady);
@@ -44,7 +47,7 @@ module tb_MSDAP;
 
     // Timeout
     initial begin
-        #1_000_000_00;
+        #100_000_000;
         $display("Timeout!");
         $finish;
     end
