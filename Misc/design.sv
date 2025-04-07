@@ -91,3 +91,48 @@ module AllZerosDetector (
 
 endmodule
 
+module DCLKtoSCLKPulse (
+    input  logic DCLK,      // Data clock (768 kHz)
+    input  logic SCLK,      // System clock (26.88 MHz)
+    input  logic start,     // Active-high reset (positive edge)
+    input  logic Frame,     // Input frame signal (DCLK domain)
+    output logic FramePulse // Output pulse (SCLK domain, 1 cycle)
+);
+
+    // DCLK Domain: Detect rising edge of Frame
+    logic Frame_prev;
+    logic Frame_rise;
+    always_ff @(posedge DCLK or posedge start) begin
+        if (start) Frame_prev <= 0;
+        else       Frame_prev <= Frame;
+    end
+    assign Frame_rise = Frame & ~Frame_prev; // Rising edge detector
+
+    // Toggle a flag on each Frame_rise (DCLK domain)
+    logic toggle_dclk;
+    always_ff @(posedge DCLK or posedge start) begin
+        if (start) toggle_dclk <= 0;
+        else if (Frame_rise) toggle_dclk <= ~toggle_dclk;
+    end
+
+    // Synchronize toggle_dclk to SCLK domain (2-stage FF)
+    logic toggle_sclk1, toggle_sclk2;
+    always_ff @(posedge SCLK or posedge start) begin
+        if (start) begin
+            toggle_sclk1 <= 0;
+            toggle_sclk2 <= 0;
+        end else begin
+            toggle_sclk1 <= toggle_dclk;
+            toggle_sclk2 <= toggle_sclk1;
+        end
+    end
+
+    // Detect toggle edge in SCLK domain to generate pulse
+    logic toggle_sclk_prev;
+    always_ff @(posedge SCLK or posedge start) begin
+        if (start) toggle_sclk_prev <= 0;
+        else       toggle_sclk_prev <= toggle_sclk2;
+    end
+    assign FramePulse = (toggle_sclk2 != toggle_sclk_prev);
+
+endmodule

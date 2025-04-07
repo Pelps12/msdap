@@ -31,7 +31,7 @@ module tb_ALU;
         .clk(clk),
         .enable(enable),
         .clear(clear),
-        .current_data_addr(35),
+        .current_data_addr('d47),
         .data(data),
         .coeff_data(coeff_data),
         .rj_data(rj_data),
@@ -39,7 +39,7 @@ module tb_ALU;
         .coeff_addr(coeff_addr),
         .rj_addr(rj_addr),
         .output_en(output_en),
-        .accum_reg(accum_reg)
+        .result_reg(accum_reg)
     );
 
     // Clock generation

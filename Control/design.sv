@@ -25,7 +25,8 @@ module Control (
     output logic alu_en,
     output logic alu_clear,
     output logic p2s_load,
-    output logic p2s_clear
+    output logic p2s_clear,
+    output logic p2s_en
 );
     
     typedef enum
@@ -170,6 +171,7 @@ module Control (
                 data_count_enable = 1;
                 data_wr_en = 1;
                 alu_en = 1;
+                p2s_en = 1;
             end
             
         endcase

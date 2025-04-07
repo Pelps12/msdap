@@ -22,7 +22,7 @@ module rj_memory (
         if (rj_wr_en_l) begin
             rj_mem_l[rj_addr_l] <= rj_data_in_l;
             
-            //$display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
+            $display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
             
             
         end
@@ -108,7 +108,7 @@ module data_memory_fifo (
         end
         else if(data_wr_en_l) begin
             data_mem_l[write_addr_l] <= data_in_l;
-            //$display("Writing %x to Memory. ADDY: %d", data_in_l, write_addr_l);
+            $display("Writing %x to Data Memory. Addr: %d", data_in_l, write_addr_l);
         end
     end
 

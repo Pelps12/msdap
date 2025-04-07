@@ -21,8 +21,10 @@ module tb_MSDAP;
     logic [15:0] coeffL[0:511], coeffR[0:511];
     logic [15:0] dataL[0:2299], dataR[0:2299];
 
-    parameter sclk_period = 40;
-    parameter dclk_period = 1302; //data clock period 1302ns = 768kHz
+    parameter sclk_period = 37.20238095;
+    parameter dclk_period = 1302.083333; //data clock period 1302ns = 768kHz
+
+    int fd;
 
     // Instantiate MSDAP
     MSDAP uut (.*);
@@ -84,6 +86,9 @@ module tb_MSDAP;
 
         // Fork input transmission and output capture
         fork
+            fd = $fopen ("data.out", "w");
+            if (fd)  $display("File was opened successfully : %0d", fd);
+            else     $display("File was NOT opened successfully : %0d", fd);
             // ----------------------------
             // Input Transmission Process
             // ----------------------------
@@ -111,9 +116,9 @@ module tb_MSDAP;
             // ----------------------------
             begin
                 wait(OutReady); // Wait for first output
-                $display("\n--- Starting output capture ---");
+                $fdisplay(fd, "\n--- Starting output capture ---");
                 
-                for (int  j= 0; j < 60; j++) begin
+                for (int  j= 0; j < 300; j++) begin
                     //$display("%d", j);
                     capture_done = 0;
                     while(!capture_done) begin
@@ -128,13 +133,16 @@ module tb_MSDAP;
                                 if (bit_count == 40) begin
                                     capture_done = 1;
                                     bit_count = 0;
-                                    $display("%x", captured_outputL);
+                                    $fdisplay(fd, "OutputL: %x", captured_outputL);
                                 end
                             end
                         end
                     end
                 end
+
+                $fclose(fd);
             end
+            
         join
 
 

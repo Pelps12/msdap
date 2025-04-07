@@ -71,10 +71,6 @@ always_ff @(posedge clk or posedge clear) begin
                 accum_reg = {accum_reg[39], accum_reg[39:1]};
             end
         end
-
-        if (output_en) begin
-            accum_reg = 0;
-        end
     end
 end
 

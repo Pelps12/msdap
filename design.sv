@@ -68,7 +68,7 @@ module MSDAP (
 
     logic mem_clear;
 
-    logic frame_pulse, conv_done;
+    logic frame_pulse, conv_done, s2p_ready_pulse, p2s_en;
 
     Counter data_rc(
         .clk(s2p_ready),
@@ -78,10 +78,12 @@ module MSDAP (
         .count(data_addr)
     );
 
-    rising_edge_pulse fall_detector(
-        .clk(SCLK),
-        .signal_in(Frame),
-        .pulse_out(frame_pulse)
+    DCLKtoSCLKPulse s2p_pulse(
+        .SCLK(SCLK),
+        .DCLK(DCLK),
+        .start(Start),
+        .Frame(s2p_ready),
+        .FramePulse(s2p_ready_pulse)
     );
 
 
@@ -116,8 +118,8 @@ module MSDAP (
 
     rj_memory rj_mem (
         .clk(SCLK),
-        .rj_wr_en_l(s2p_ready && rj_wr_en),
-        .rj_wr_en_r(s2p_ready && rj_wr_en),
+        .rj_wr_en_l(s2p_ready_pulse && rj_wr_en),
+        .rj_wr_en_r(s2p_ready_pulse && rj_wr_en),
         .rj_addr_l(rj_wr_en ? rj_count: rj_addr_l),
         .rj_addr_r(rj_wr_en ? rj_count: rj_addr_r),
         .rj_data_in_l(ParallelL),
@@ -158,7 +160,7 @@ module MSDAP (
     ALU alu(
         .clk(SCLK),
         .enable(alu_en),
-        .clear(frame_pulse),
+        .clear(s2p_ready_pulse),
         .current_data_addr(data_addr),
         .data(data_out_l),
         .coeff_data(coeff_data_out_l),
@@ -173,7 +175,7 @@ module MSDAP (
 
     P2S p2s (
         .SCLK(SCLK),
-        .LOAD(conv_done),
+        .EN(p2s_en),
         .FRAME(Frame),
         .CLR(p2s_clear),
         .PDATAIN(accum_reg),
@@ -203,13 +205,13 @@ module MSDAP (
         .data_clear_complete(data_clear_complete),
         .rj_count_restart(rj_count_restart),
         .rj_count_enable(rj_count_enable),
-        .rj_count_done(rj_count_done),
+        .rj_count_done(rj_count_done && s2p_ready_pulse),
         .in_ready(InReady),
         .rj_wr_en(rj_wr_en),
         .coeff_wr_en(coeff_wr_en),
         .coeff_count_restart(coeff_count_restart),
         .coeff_count_enable(coeff_count_enable),
-        .coeff_count_done(coeff_count_done),
+        .coeff_count_done(coeff_count_done && s2p_ready_pulse),
         .data_wr_en(data_wr_en),
         .s2p_clear(s2p_clear),
         .s2p_done(s2p_ready),
@@ -217,6 +219,7 @@ module MSDAP (
         .alu_clear(alu_clear),
         .p2s_load(p2s_load),
         .p2s_clear(p2s_clear),
+        .p2s_en(p2s_en),
         .conv_done(conv_done)
     );
     
