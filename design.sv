@@ -9,8 +9,8 @@
 
 module MSDAP (
     // Clock and Reset Inputs
-    input logic SCLK,       // System Clock (26.88 MHz)
-    input logic DCLK,       // Data Clock (768 kHz)
+    input logic Sclk,       // System Clock (26.88 MHz)
+    input logic Dclk,       // Data Clock (768 kHz)
     
     // Control Inputs
     input logic Start,      // Initializes the processing operation
