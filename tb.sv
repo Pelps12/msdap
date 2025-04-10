@@ -1,5 +1,10 @@
 `timescale 1ns / 1ps
 
+`define RJ_SIZE 16
+`define COEFF_SIZE 512
+`define TB_DATA_SIZE 7000
+`define FILE_SIZE 15056//3056(1000 data)//15056(all data)//16*2+512*2+7000*2
+
 module tb_MSDAP;
     // Inputs
     logic SCLK;        // System Clock (26.88 MHz)
@@ -17,14 +22,17 @@ module tb_MSDAP;
     logic OutReady;    // Output ready signal
 
     // Test data arrays
-    logic [15:0] rjL [0:15], rjR [0:15];
-    logic [15:0] coeffL[0:511], coeffR[0:511];
-    logic [15:0] dataL[0:2299], dataR[0:2299];
+    logic [15:0] rjL [0:`RJ_SIZE-1], rjR [0:`RJ_SIZE-1];
+    logic [15:0] coeffL[0:`TB_DATA_SIZE - 1], coeffR[0:`TB_DATA_SIZE - 1];
+    logic [15:0] dataL[0:`TB_DATA_SIZE - 1], dataR[0:`TB_DATA_SIZE - 1];
+
+    reg [15:0] fileInput [0:`FILE_SIZE - 1]; //Prepare space for holding data.in
 
     parameter sclk_period = 37.20238095;
     parameter dclk_period = 1302.083333; //data clock period 1302ns = 768kHz
 
     int fd;
+    int i, j, out_count;
 
     // Instantiate MSDAP
     MSDAP uut (.*);
@@ -49,25 +57,44 @@ module tb_MSDAP;
 
     // Timeout
     initial begin
-        #100_000_000;
+        #1_000_000_000;
         $display("Timeout!");
+        $fclose(fd);
         $finish;
     end
 
     // Initialize test data
     initial begin
-        $readmemh("rj_in.hex", rjL);
-        $readmemh("rj_in.hex", rjR);
-        $readmemh("coeff.hex", coeffL);
-        $readmemh("coeff.hex", coeffR);
-        $readmemh("data.hex", dataL);
-        $readmemh("data.hex", dataR);
+        $readmemh("data1.in",fileInput);//Input data1
+        //$readmemh("/home/010/y/yx/yxf160330/CE6306/Final/datasets/data2.in",fileInput);
+        j = 0;
+        for(i = 0; i < `RJ_SIZE * 2; i=i+2) begin
+            rjL[j] = fileInput[i];
+            rjR[j] = fileInput[i + 1];
+            $display("RjL and RjR at Number %d is %h and %h \n",i, rjL[j], rjR[j]); 
+            j = j + 1;
+        end
+        j = 0;
+        for(i = `RJ_SIZE * 2; i < `RJ_SIZE  * 2 + `COEFF_SIZE * 2; i=i+2) begin
+            coeffL[j] = fileInput[i];
+            coeffR[j] = fileInput[i + 1];
+            $display("CoeffL and CoeffR at Number %d is %h and %h \n",j, coeffL[j], coeffR[j]); 
+            j = j + 1;
+        end
+        j=0;
+        for(i = `RJ_SIZE * 2 + `COEFF_SIZE * 2; i < `FILE_SIZE; i=i+2) begin
+            dataL[j] = fileInput[i];
+            dataR[j] = fileInput[i + 1];
+            $display("DataL and DataR at Number %d is %h and %h \n", j, dataL[j], dataR[j]);
+            j = j + 1;
+        end 
     end
 
     // Test sequence
     initial begin
         // Shared variables
         logic [39:0] captured_outputL, expected_outputL;
+        logic [39:0] captured_outputR, expected_outputR;
         integer bit_count = 0;
         logic capture_done = 0;
 
@@ -100,26 +127,28 @@ module tb_MSDAP;
                 for (int j = 0; j < 512; j++) send_frame(coeffL[j], coeffR[j]);
                 
                 // Send input data
-                for (int j = 0; j < 60; j++) send_frame(dataL[j], dataR[j]);
+                for (int j = 0; j < `TB_DATA_SIZE; j++) send_frame(dataL[j], dataR[j]);
             end
 
-            begin
+/*             begin
                 #12000000;
                 Reset_n = 0;
                 #10;
                 Reset_n = 1;
 
-            end
+            end */
 
             // ----------------------------
             // Output Capture Process
             // ----------------------------
             begin
                 wait(OutReady); // Wait for first output
-                $fdisplay(fd, "\n--- Starting output capture ---");
                 
-                for (int  j= 0; j < 300; j++) begin
+                for (out_count= 0; out_count < `TB_DATA_SIZE ; out_count++) begin
                     //$display("%d", j);
+                    if (out_count == 3799) begin
+                            $display("PLEASSSEEEEEE");
+                    end
                     capture_done = 0;
                     while(!capture_done) begin
                         wait(OutReady);
@@ -127,13 +156,14 @@ module tb_MSDAP;
                         @(posedge SCLK) begin
                             if (OutReady && (bit_count < 40)) begin
                                 captured_outputL[39 - bit_count] = OutputL;
+                                captured_outputR[39 - bit_count] = OutputR;
                                 bit_count++;
                                 //$display("Captured bit %0d: %b", bit_count, OutputL);
                                 
                                 if (bit_count == 40) begin
                                     capture_done = 1;
                                     bit_count = 0;
-                                    $fdisplay(fd, "OutputL: %x", captured_outputL);
+                                    $fdisplay(fd, "OutputL: %x; OutputR: %x", captured_outputL, captured_outputR);
                                 end
                             end
                         end

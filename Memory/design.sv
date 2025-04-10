@@ -22,7 +22,7 @@ module rj_memory (
         if (rj_wr_en_l) begin
             rj_mem_l[rj_addr_l] <= rj_data_in_l;
             
-            $display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
+            //$display("Writing %x to Address: %d", rj_data_in_l, rj_addr_l);
             
             
         end
@@ -61,7 +61,7 @@ module coefficients_memory (
         if (coeff_wr_en_l) begin
             coeff_mem_l[coeff_addr_l] <= coeff_data_in_l;
             
-            $display("Writing %x to Address: %d", coeff_data_in_l, coeff_addr_l);
+            //$display("Writing %x to Address: %d", coeff_data_in_l, coeff_addr_l);
             
             
         end
@@ -102,13 +102,14 @@ module data_memory_fifo (
     // Write logic for Left channel
     always_ff @(posedge clk or negedge rst_n or posedge clear) begin
         if (clear || !rst_n) begin
+            $display("CLEARINNNNNGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG");
             for (int i = 0; i < 256; i++) begin
                 data_mem_l[i] <= 0;
             end
         end
         else if(data_wr_en_l) begin
             data_mem_l[write_addr_l] <= data_in_l;
-            $display("Writing %x to Data Memory. Addr: %d", data_in_l, write_addr_l);
+            //$display("Writing %x to Data Memory(L). Addr: %d", data_in_l, write_addr_l);
         end
     end
 
@@ -121,11 +122,12 @@ module data_memory_fifo (
         end
         else if(data_wr_en_r) begin
             data_mem_r[write_addr_r] <= data_in_r;
+            //$display("Writing %x to Data Memory(R). Addr: %d", data_in_r, write_addr_r);
         end
         
     end
 
     // Read logic
     assign data_out_l = data_mem_l[read_addr_l];
-    assign data_out_r = data_mem_l[read_addr_l];
+    assign data_out_r = data_mem_r[read_addr_r];
 endmodule

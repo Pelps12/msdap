@@ -32,6 +32,33 @@ end
 endmodule
 
 
+
+module Edge_Detector (
+    input  logic clk,      // Clock signal
+    input  logic restart,  // Asynchronous reset input
+    input  logic enable,   // Enable signal to be edge-detected
+    output logic done      // One-clock-cycle pulse when a rising edge is detected on enable
+);
+
+  // Register to hold previous value of enable
+  logic prev_enable;
+
+  // Synchronous logic: on every clock, update the previous enable state and generate pulse.
+  always_ff @(posedge clk or posedge restart) begin
+    if (restart) begin
+      prev_enable <= 1'b0;
+      done        <= 1'b0;
+    end 
+    else begin
+      // Generate a pulse when enable transitions from 0 to 1
+      done        <= (~prev_enable) & enable;
+      prev_enable <= enable;
+    end
+  end
+
+endmodule
+
+
 module falling_edge_pulse (
     input  logic clk,
     input  logic signal_in,  // Input signal to detect falling edge
@@ -77,15 +104,23 @@ module AllZerosDetector (
         if (clear) begin
             zero_count <= 10'h0;
             all_zeros  <= 1'b0;
-        end else if (enable ) begin
-            // Check both channels simultaneously
-            if (dataL == 16'h0 && dataR == 16'h0) begin
-                zero_count <= (zero_count == 10'd799) ? 10'd799 : zero_count + 1;
-                all_zeros  <= (zero_count == 10'd799); // Assert at 800
-            end else begin
+        end else begin
+            // Check for non-zero in either channel (unconditionally)
+            if (dataL != 16'h0 || dataR != 16'h0) begin
                 zero_count <= 10'h0;
                 all_zeros  <= 1'b0;
+            end else if (enable) begin
+                // Both channels are zero and enable is high: increment counter
+                if (zero_count == 10'd799) begin
+                    // Maintain count at 799 once reached
+                    zero_count <= zero_count;
+                    all_zeros  <= 1'b1;
+                end else begin
+                    zero_count <= zero_count + 1;
+                    all_zeros  <= (zero_count + 1 == 10'd799);
+                end
             end
+            // else, enable is low and data is zero: do nothing (counter remains)
         end
     end
 
@@ -134,5 +169,43 @@ module DCLKtoSCLKPulse (
         else       toggle_sclk_prev <= toggle_sclk2;
     end
     assign FramePulse = (toggle_sclk2 != toggle_sclk_prev);
+
+endmodule
+
+
+module mask_two_pulses (
+  input  logic rst_n,       // Active-low reset
+  input  logic clear,       // Active-high clear
+  input logic one_or_two,
+  input  logic OutReady,    // Original "ready" signal
+  output logic newOutReady // Masked-out "ready" that tracks OutReady after two pulses
+);
+     logic [1:0] count;  // Internal counter
+  // COUNTER:
+  //   - increments on posedge of OutReady
+  //   - resets async on negedge of rst_n or posedge of clear
+  //   - saturates at 2
+  always_ff @(posedge OutReady or posedge clear or negedge rst_n or posedge one_or_two) begin
+    if (!rst_n) begin
+      count <= 2'b00;
+    end
+    else if (clear) begin
+      count <= 2'b00;
+    end
+    else if(one_or_two) begin
+        count <= 2'b01;
+    end
+    else begin
+      if (count < 3) begin
+        count <= count + 1'b1;
+      end
+      // If already 2, stay at 2
+    end
+  end
+
+  // OUTPUT LOGIC:
+  //   - If count == 2, pass OutReady directly (so newOutReady will follow both edges)
+  //   - Otherwise, drive 0 (mask out the first two pulses entirely)
+  assign newOutReady = (count == 3) ? OutReady : 1'b0;
 
 endmodule

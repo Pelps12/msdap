@@ -64,12 +64,13 @@ module MSDAP (
 
     logic coeff_count_restart, coeff_count_done, coeff_count_enable;
     logic [8:0] coeff_count;
-    logic [39:0] accum_reg;
+    logic [39:0] result_reg_l, result_reg_r;
+    logic mask_one_or_two;
 
     logic mem_clear;
 
-    logic frame_pulse, conv_done, s2p_ready_pulse, p2s_en;
-
+    logic frame_pulse, conv_done, s2p_ready_pulse, p2s_en, edge_done;
+    
     Counter data_rc(
         .clk(s2p_ready),
         .restart(data_count_restart),
@@ -84,6 +85,13 @@ module MSDAP (
         .start(Start),
         .Frame(s2p_ready),
         .FramePulse(s2p_ready_pulse)
+    );
+
+    Edge_Detector test(
+        .clk(s2p_ready),
+        .restart(data_count_restart),
+        .enable(data_count_enable),
+        .done(edge_done)
     );
 
 
@@ -157,7 +165,7 @@ module MSDAP (
         .data_out_r(data_out_r)
     );
 
-    ALU alu(
+    ALU alu_l(
         .clk(SCLK),
         .enable(alu_en),
         .clear(s2p_ready_pulse),
@@ -169,7 +177,32 @@ module MSDAP (
         .coeff_addr(coeff_addr_l),
         .rj_addr(rj_addr_l),
         .output_en(conv_done),
-        .result_reg(accum_reg)
+        .result_reg(result_reg_l)
+    );
+
+    ALU alu_r(
+        .clk(SCLK),
+        .enable(alu_en),
+        .clear(s2p_ready_pulse),
+        .current_data_addr(data_addr),
+        .data(data_out_r),
+        .coeff_data(coeff_data_out_r),
+        .rj_data(rj_data_out_r),
+        .data_addr(read_offset_r),
+        .coeff_addr(coeff_addr_r),
+        .rj_addr(rj_addr_r),
+        .output_en(conv_done),
+        .result_reg(result_reg_r)
+    );
+
+    logic OutReady_internal;
+
+    mask_two_pulses new_mask(
+        .rst_n(Reset_n),
+        .clear(Start),
+        .OutReady(OutReady_internal),
+        .one_or_two(mask_one_or_two),
+        .newOutReady(OutReady)
     );
 
 
@@ -178,13 +211,15 @@ module MSDAP (
         .EN(p2s_en),
         .FRAME(Frame),
         .CLR(p2s_clear),
-        .PDATAIN(accum_reg),
-        .DATAOUT(OutputL),
-        .OutReady(OutReady)
+        .PDATAIN_L(result_reg_l),
+        .PDATAIN_R(result_reg_r),
+        .DATAOUT_L(OutputL),
+        .DATAOUT_R(OutputR),
+        .OutReady(OutReady_internal)
     );
 
     AllZerosDetector zero_detector(
-        .clk(SCLK),
+        .clk(s2p_ready),
         .enable(data_wr_en),
         .clear(s2p_clear || InputL == 1),
         .dataL(ParallelL),
@@ -220,7 +255,8 @@ module MSDAP (
         .p2s_load(p2s_load),
         .p2s_clear(p2s_clear),
         .p2s_en(p2s_en),
-        .conv_done(conv_done)
+        .conv_done(conv_done),
+        .mask_one_or_two(mask_one_or_two)
     );
     
     

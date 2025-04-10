@@ -26,7 +26,8 @@ module Control (
     output logic alu_clear,
     output logic p2s_load,
     output logic p2s_clear,
-    output logic p2s_en
+    output logic p2s_en,
+    output logic mask_one_or_two
 );
     
     typedef enum
@@ -135,6 +136,8 @@ module Control (
         p2s_load = 0;
         p2s_clear = 0;
         mem_clear = 0;
+        p2s_en = 0;
+        mask_one_or_two = 0;
 
         case (state)
             INIT: begin
@@ -172,6 +175,10 @@ module Control (
                 data_wr_en = 1;
                 alu_en = 1;
                 p2s_en = 1;
+            end
+            SLEEPING: begin
+                in_ready = 1;
+                mask_one_or_two = 1;
             end
             
         endcase
