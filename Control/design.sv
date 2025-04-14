@@ -44,7 +44,7 @@ module Control (
     } state_e;
 
     state_e state, next_state;
-    always_ff @( posedge clk, posedge start ) begin : State_Change
+    always_ff @( posedge clk, posedge start, negedge reset_n ) begin : State_Change
         if (start) begin
             state <= INIT;
         end
@@ -107,6 +107,9 @@ module Control (
             SLEEPING: begin
                 if(~all_zeros) begin
                     next_state = WORKING;
+                end
+                else if (~reset_n) begin
+                    next_state = CLEARING;
                 end
             end
 

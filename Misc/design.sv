@@ -192,9 +192,7 @@ module mask_two_pulses (
     else if (clear) begin
       count <= 2'b00;
     end
-    else if(one_or_two) begin
-        count <= 2'b01;
-    end
+
     else begin
       if (count < 3) begin
         count <= count + 1'b1;

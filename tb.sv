@@ -7,7 +7,7 @@
 
 module tb_MSDAP;
     // Inputs
-    logic Sclk;        // System Clock (26.88 MHz)
+    logic SCLK;        // System Clock (26.88 MHz)
     logic DCLK;        // Data Clock (768 kHz)
     logic Start;       // Initializes processing
     logic Reset_n;     // Active-low reset
@@ -39,8 +39,8 @@ module tb_MSDAP;
 
     // Clock generation
     initial begin
-        Sclk = 0;
-        forever #(sclk_period/2) Sclk = ~Sclk;  // 26.88 MHz
+        SCLK = 0;
+        forever #(sclk_period/2) SCLK = ~SCLK;  // 26.88 MHz
     end
 
     // Data Clock (gated by InReady)
@@ -127,7 +127,14 @@ module tb_MSDAP;
                 for (int j = 0; j < 512; j++) send_frame(coeffL[j], coeffR[j]);
                 
                 // Send input data
-                for (int j = 0; j < `TB_DATA_SIZE; j++) send_frame(dataL[j], dataR[j]);
+                for (int j = 0; j < `TB_DATA_SIZE; j++) begin
+                    send_frame(dataL[j], dataR[j]);
+                    if(j == 3799) begin
+                        Reset_n = 0;
+                        #40;
+                        Reset_n = 1;
+                    end
+                end
             end
 
 /*             begin
@@ -153,7 +160,7 @@ module tb_MSDAP;
                     while(!capture_done) begin
                         wait(OutReady);
                         //$display("HERRE");
-                        @(posedge Sclk) begin
+                        @(posedge SCLK) begin
                             if (OutReady && (bit_count < 40)) begin
                                 captured_outputL[39 - bit_count] = OutputL;
                                 captured_outputR[39 - bit_count] = OutputR;

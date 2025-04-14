@@ -9,8 +9,8 @@
 
 module MSDAP (
     // Clock and Reset Inputs
-    input logic Sclk,       // System Clock (26.88 MHz)
-    input logic Dclk,       // Data Clock (768 kHz)
+    input logic SCLK,       // System Clock (26.88 MHz)
+    input logic DCLK,       // Data Clock (768 kHz)
     
     // Control Inputs
     input logic Start,      // Initializes the processing operation
@@ -69,7 +69,11 @@ module MSDAP (
 
     logic mem_clear;
 
-    logic frame_pulse, conv_done, s2p_ready_pulse, p2s_en, edge_done;
+    logic frame_pulse, conv_done, s2p_ready_pulse, p2s_en, edge_done, test_pin;
+
+    always_ff @( posedge DCLK) begin
+        test_pin <= data_wr_en && s2p_ready;
+    end
     
     Counter data_rc(
         .clk(s2p_ready),
@@ -168,7 +172,7 @@ module MSDAP (
     ALU alu_l(
         .clk(SCLK),
         .enable(alu_en),
-        .clear(s2p_ready_pulse),
+        .clear(s2p_ready_pulse && test_pin),
         .current_data_addr(data_addr),
         .data(data_out_l),
         .coeff_data(coeff_data_out_l),
