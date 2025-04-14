@@ -185,7 +185,7 @@ module mask_two_pulses (
   //   - increments on posedge of OutReady
   //   - resets async on negedge of rst_n or posedge of clear
   //   - saturates at 2
-  always_ff @(posedge OutReady or posedge clear or negedge rst_n or posedge one_or_two) begin
+  always_ff @(posedge OutReady or posedge clear or negedge rst_n) begin
     if (!rst_n) begin
       count <= 2'b00;
     end
